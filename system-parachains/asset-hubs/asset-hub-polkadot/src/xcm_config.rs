@@ -85,6 +85,24 @@ pub type LocationToAccountId = (
 	GlobalConsensusParachainConvertsFor<UniversalLocation, AccountId>,
 );
 
+#[test]
+fn assert_treasury_account() {
+	use sp_core::crypto::Ss58Codec;
+	use xcm_executor::traits::ConvertLocation;
+
+	let treasury_location =
+		MultiLocation::new(1, PalletInstance(polkadot_runtime_constants::TREASURY_PALLET_ID));
+	let treasury_account = LocationToAccountId::convert_location(&treasury_location).unwrap();
+	let expected_treasury_account =
+		AccountId::from_ss58check("14xmwinmCEz6oRrFdczHKqHgWNMiCysE2KrA4jXXAAM1Eogk").unwrap();
+	assert_eq!(treasury_account, expected_treasury_account);
+	let wrong_treasury_account =
+		AccountId::from_ss58check("14ABFtsy9ZWh8Q9P2JSSuqnPAbmnKf4sA25D54mkdps2n6st").unwrap();
+	assert_ne!(treasury_account, wrong_treasury_account);
+
+	println!("treasury account ss58: {}", treasury_account.to_ss58check_with_version(0u8.into()));
+}
+
 /// Means for transacting the native currency on this chain.
 pub type CurrencyTransactor = CurrencyAdapter<
 	// Use this currency:
