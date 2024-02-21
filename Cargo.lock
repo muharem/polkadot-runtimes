@@ -589,7 +589,7 @@ dependencies = [
  "kusama-runtime-constants",
  "log",
  "pallet-asset-conversion",
- "pallet-asset-tx-payment 29.0.0",
+ "pallet-asset-conversion-tx-payment",
  "pallet-assets 30.0.0",
  "pallet-aura 28.0.0",
  "pallet-authorship 29.0.0",
