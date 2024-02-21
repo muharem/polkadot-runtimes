@@ -26,12 +26,12 @@ fn relay_origin_assertions(t: RelayToSystemParaTest) {
 		Kusama,
 		vec![
 			// Amount to teleport is withdrawn from Sender
-			RuntimeEvent::Balances(pallet_balances::Event::Withdraw { who, amount }) => {
+			RuntimeEvent::Balances(pallet_balances::Event::Burned { who, amount }) => {
 				who: *who == t.sender.account_id,
 				amount: *amount == t.args.amount,
 			},
 			// Amount to teleport is deposited in Relay's `CheckAccount`
-			RuntimeEvent::Balances(pallet_balances::Event::Deposit { who, amount }) => {
+			RuntimeEvent::Balances(pallet_balances::Event::Minted { who, amount }) => {
 				who: *who == <Kusama as KusamaPallet>::XcmPallet::check_account(),
 				amount:  *amount == t.args.amount,
 			},
@@ -52,12 +52,12 @@ fn relay_dest_assertions(t: SystemParaToRelayTest) {
 		Kusama,
 		vec![
 			// Amount is withdrawn from Relay Chain's `CheckAccount`
-			RuntimeEvent::Balances(pallet_balances::Event::Withdraw { who, amount }) => {
+			RuntimeEvent::Balances(pallet_balances::Event::Burned { who, amount }) => {
 				who: *who == <Kusama as KusamaPallet>::XcmPallet::check_account(),
 				amount: *amount == t.args.amount,
 			},
 			// Amount minus fees are deposited in Receiver's account
-			RuntimeEvent::Balances(pallet_balances::Event::Deposit { who, .. }) => {
+			RuntimeEvent::Balances(pallet_balances::Event::Minted { who, .. }) => {
 				who: *who == t.receiver.account_id,
 			},
 		]
@@ -86,7 +86,7 @@ fn para_origin_assertions(t: SystemParaToRelayTest) {
 		AssetHubKusama,
 		vec![
 			// Amount is withdrawn from Sender's account
-			RuntimeEvent::Balances(pallet_balances::Event::Withdraw { who, amount }) => {
+			RuntimeEvent::Balances(pallet_balances::Event::Burned { who, amount }) => {
 				who: *who == t.sender.account_id,
 				amount: *amount == t.args.amount,
 			},
@@ -103,7 +103,7 @@ fn para_dest_assertions(t: RelayToSystemParaTest) {
 		AssetHubKusama,
 		vec![
 			// Amount minus fees are deposited in Receiver's account
-			RuntimeEvent::Balances(pallet_balances::Event::Deposit { who, .. }) => {
+			RuntimeEvent::Balances(pallet_balances::Event::Minted { who, .. }) => {
 				who: *who == t.receiver.account_id,
 			},
 		]
@@ -146,12 +146,12 @@ fn penpal_to_ah_foreign_assets_receiver_assertions(t: ParaToSystemParaTest) {
 		vec![
 			// native asset reserve transfer for paying fees, withdrawn from Penpal's sov account
 			RuntimeEvent::Balances(
-				pallet_balances::Event::Withdraw { who, amount }
+				pallet_balances::Event::Burned { who, amount }
 			) => {
 				who: *who == sov_penpal_on_ahr.clone().into(),
 				amount: *amount == t.args.amount,
 			},
-			RuntimeEvent::Balances(pallet_balances::Event::Deposit { who, .. }) => {
+			RuntimeEvent::Balances(pallet_balances::Event::Minted { who, .. }) => {
 				who: *who == t.receiver.account_id,
 			},
 			RuntimeEvent::ForeignAssets(pallet_assets::Event::Issued { asset_id, owner, amount }) => {
@@ -540,7 +540,7 @@ fn teleport_native_assets_from_system_para_to_relay_fails() {
 #[test]
 fn teleport_to_other_system_parachains_works() {
 	let amount = ASSET_HUB_KUSAMA_ED * 100;
-	let native_asset: MultiAssets = (Parent, amount).into();
+	let native_asset: Assets = (Parent, amount).into();
 
 	test_parachain_is_trusted_teleporter!(
 		AssetHubKusama,          // Origin
@@ -562,7 +562,7 @@ fn bidirectional_teleport_foreign_assets_between_para_and_asset_hub() {
 	};
 	let asset_owner_on_penpal = PenpalKusamaASender::get();
 	let foreign_asset_at_asset_hub_kusama =
-		MultiLocation { parents: 1, interior: X1(Parachain(PenpalKusamaA::para_id().into())) }
+		Location { parents: 1, interior: X1(Parachain(PenpalKusamaA::para_id().into())) }
 			.appended_with(asset_location_on_penpal)
 			.unwrap();
 	super::penpal_create_foreign_asset_on_asset_hub(
@@ -578,7 +578,7 @@ fn bidirectional_teleport_foreign_assets_between_para_and_asset_hub() {
 	let fee_amount_to_send = ASSET_HUB_KUSAMA_ED * 10_000;
 	let asset_amount_to_send = ASSET_MIN_BALANCE * 1000;
 
-	let penpal_assets: MultiAssets = vec![
+	let penpal_assets: Assets = vec![
 		(Parent, fee_amount_to_send).into(),
 		(asset_location_on_penpal, asset_amount_to_send).into(),
 	]
@@ -670,7 +670,7 @@ fn bidirectional_teleport_foreign_assets_between_para_and_asset_hub() {
 
 	let ah_to_penpal_beneficiary_id = PenpalKusamaAReceiver::get();
 	let penpal_as_seen_by_ah = AssetHubKusama::sibling_location_of(PenpalKusamaA::para_id());
-	let ah_assets: MultiAssets = vec![
+	let ah_assets: Assets = vec![
 		(Parent, fee_amount_to_send).into(),
 		(foreign_asset_at_asset_hub_kusama, asset_amount_to_send).into(),
 	]
