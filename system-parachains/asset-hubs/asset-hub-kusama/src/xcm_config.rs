@@ -14,16 +14,22 @@
 // limitations under the License.
 
 use super::{
-	AccountId, AllPalletsWithSystem, Assets, Authorship, Balance, Balances, ParachainInfo,
-	ParachainSystem, PolkadotXcm, PoolAssets, PriceForParentDelivery, Runtime, RuntimeCall,
-	RuntimeEvent, RuntimeOrigin, ToPolkadotXcmRouter, TransactionByteFee,
-	TrustBackedAssetsInstance, WeightToFee, XcmpQueue,
+	AccountId, AllPalletsWithSystem, AssetConversion, Assets, Authorship, Balance, Balances,
+	CollatorSelection, NativeAndAssets, ParachainInfo, ParachainSystem, PolkadotXcm, PoolAssets,
+	PriceForParentDelivery, Runtime, RuntimeCall, RuntimeEvent, RuntimeOrigin, ToPolkadotXcmRouter,
+	TransactionByteFee, TrustBackedAssetsInstance, WeightToFee, XcmpQueue,
 };
 use crate::{ForeignAssets, ForeignAssetsInstance};
-use assets_common::matching::{FromSiblingParachain, IsForeignConcreteAsset};
+use assets_common::{
+	matching::{FromSiblingParachain, IsForeignConcreteAsset},
+	TrustBackedAssetsAsLocation,
+};
 use frame_support::{
 	parameter_types,
-	traits::{ConstU32, Contains, Equals, Everything, Nothing, PalletInfoAccess},
+	traits::{
+		tokens::imbalance::ResolveAssetTo, ConstU32, Contains, Equals, Everything, Nothing,
+		PalletInfoAccess,
+	},
 };
 use frame_system::EnsureRoot;
 use pallet_xcm::XcmPassthrough;
@@ -73,6 +79,7 @@ parameter_types! {
 	pub const FellowshipLocation: Location = Location::parent();
 	pub RelayTreasuryLocation: Location = (Parent, PalletInstance(kusama_runtime_constants::TREASURY_PALLET_ID)).into();
 	pub TreasuryAccount: AccountId = TREASURY_PALLET_ID.into_account_truncating();
+	pub StakingPot: AccountId = CollatorSelection::account_id();
 }
 
 /// Type for specifying how a `Location` can be converted into an `AccountId`. This is used
@@ -525,6 +532,20 @@ impl xcm_executor::Config for XcmConfig {
 	>;
 	type Trader = (
 		UsingComponents<WeightToFee, KsmLocation, AccountId, Balances, ToStakingPot<Runtime>>,
+		// This trader allows to pay with any assets exchangeable to DOT with
+		// [`AssetConversion`].
+		cumulus_primitives_utility::SwapFirstAssetTrader<
+			KsmLocationV3,
+			AssetConversion,
+			WeightToFee,
+			NativeAndAssets,
+			(
+				TrustBackedAssetsAsLocation<TrustBackedAssetsPalletLocation, Balance>,
+				ForeignAssetsConvertedConcreteId,
+			),
+			ResolveAssetTo<StakingPot, NativeAndAssets>,
+			AccountId,
+		>,
 		// This trader allows to pay with `is_sufficient=true` "Trust Backed" assets from dedicated
 		// `pallet_assets` instance - `Assets`.
 		cumulus_primitives_utility::TakeFirstAssetTrader<
