@@ -3287,3 +3287,43 @@ mod init_state_migration {
 		}
 	}
 }
+
+#[test]
+fn encode_create_rate(){
+	use sp_runtime::FixedU128;
+	use xcm::latest::prelude::*;
+	use sp_std::boxed::Box;
+
+	let ded = VersionedLocatableAsset::V4{
+		location: Location::new(0, [Parachain(1000)]),
+		asset_id: Location::new(0, [PalletInstance(50), GeneralIndex(30)]).into(),
+	};
+
+	let rate = FixedU128::from_rational(1, 30_000);
+
+	let call = RuntimeCall::AssetRate(pallet_asset_rate::Call::create {
+		asset_kind: Box::new(ded.clone()),
+		rate: rate,
+	});
+
+	println!("call = {:02x?}", call.encode());
+	println!("call = 0x{}", hex::encode(call.encode()));
+	/*
+	call = [65, 00, 04, 00, 01, 00, a1, 0f, 00, 02, 04, 32, 05, 78, 55, 15, 7e, 05, 51, 1e, 00, 00, 00, 00, 00, 00, 00, 00, 00, 00]
+	call = 0x650004000100a10f00020432057855157e05511e00000000000000000000
+	 */
+
+	let rate = FixedU128::from_u32(100);
+
+	let call = RuntimeCall::AssetRate(pallet_asset_rate::Call::create {
+		asset_kind: Box::new(ded),
+		rate: rate,
+	});
+
+	println!("call = {:02x?}", call.encode());
+	println!("call = 0x{}", hex::encode(call.encode()));
+	/*
+	call = [65, 00, 04, 00, 01, 00, a1, 0f, 00, 02, 04, 32, 05, 78, 00, 00, 10, 63, 2d, 5e, c7, 6b, 05, 00, 00, 00, 00, 00, 00, 00]
+	call = 0x650004000100a10f000204320578000010632d5ec76b0500000000000000
+	*/
+}
