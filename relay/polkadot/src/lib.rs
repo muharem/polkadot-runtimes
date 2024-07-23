@@ -1254,7 +1254,8 @@ impl InstanceFilter<RuntimeCall> for ProxyType {
 				matches!(
 					c,
 					RuntimeCall::Staking(..) |
-						RuntimeCall::Session(..) | RuntimeCall::Utility(..) |
+						RuntimeCall::Session(..) |
+						RuntimeCall::Utility(..) |
 						RuntimeCall::FastUnstake(..) |
 						RuntimeCall::VoterList(..) |
 						RuntimeCall::NominationPools(..)
@@ -3289,41 +3290,144 @@ mod init_state_migration {
 }
 
 #[test]
-fn encode_create_rate(){
+fn encode_create_rate() {
 	use sp_runtime::FixedU128;
-	use xcm::latest::prelude::*;
 	use sp_std::boxed::Box;
+	use xcm::latest::prelude::*;
 
-	let ded = VersionedLocatableAsset::V4{
+	let ded_rate = FixedU128::from_rational(1, 30_000);
+
+	let ded = VersionedLocatableAsset::V4 {
 		location: Location::new(0, [Parachain(1000)]),
 		asset_id: Location::new(0, [PalletInstance(50), GeneralIndex(30)]).into(),
 	};
 
-	let rate = FixedU128::from_rational(1, 30_000);
+	let ded_v3 = VersionedLocatableAsset::V3 {
+		location: xcm::v3::Location::new(
+			0,
+			xcm::v3::Junctions::X1(xcm::v3::Junction::Parachain(1000)),
+		),
+		asset_id: xcm::v3::Location::new(
+			0,
+			xcm::v3::Junctions::X2(
+				xcm::v3::Junction::PalletInstance(50),
+				xcm::v3::Junction::GeneralIndex(30),
+			),
+		)
+		.into(),
+	};
 
-	let call = RuntimeCall::AssetRate(pallet_asset_rate::Call::create {
+	let ded_rate_call = RuntimeCall::AssetRate(pallet_asset_rate::Call::create {
 		asset_kind: Box::new(ded.clone()),
-		rate: rate,
+		rate: ded_rate,
 	});
 
-	println!("call = {:02x?}", call.encode());
-	println!("call = 0x{}", hex::encode(call.encode()));
-	/*
-	call = [65, 00, 04, 00, 01, 00, a1, 0f, 00, 02, 04, 32, 05, 78, 55, 15, 7e, 05, 51, 1e, 00, 00, 00, 00, 00, 00, 00, 00, 00, 00]
-	call = 0x650004000100a10f00020432057855157e05511e00000000000000000000
-	 */
-
-	let rate = FixedU128::from_u32(100);
-
-	let call = RuntimeCall::AssetRate(pallet_asset_rate::Call::create {
-		asset_kind: Box::new(ded),
-		rate: rate,
+	let ded_rate_call_v3 = RuntimeCall::AssetRate(pallet_asset_rate::Call::create {
+		asset_kind: Box::new(ded_v3.clone()),
+		rate: ded_rate,
 	});
 
-	println!("call = {:02x?}", call.encode());
+	// usdc
+
+	let usdc_rate = FixedU128::from_u32(1000);
+
+	let usdc = VersionedLocatableAsset::V4 {
+		location: Location::new(0, [Parachain(1000)]),
+		asset_id: Location::new(0, [PalletInstance(50), GeneralIndex(1337)]).into(),
+	};
+
+	let usdc_v3 = VersionedLocatableAsset::V3 {
+		location: xcm::v3::Location::new(
+			0,
+			xcm::v3::Junctions::X1(xcm::v3::Junction::Parachain(1000)),
+		),
+		asset_id: xcm::v3::Location::new(
+			0,
+			xcm::v3::Junctions::X2(
+				xcm::v3::Junction::PalletInstance(50),
+				xcm::v3::Junction::GeneralIndex(1337),
+			),
+		)
+		.into(),
+	};
+
+	let usdc_rate_call = RuntimeCall::AssetRate(pallet_asset_rate::Call::update {
+		asset_kind: Box::new(usdc.clone()),
+		rate: usdc_rate,
+	});
+
+	let usdc_rate_call_v3 = RuntimeCall::AssetRate(pallet_asset_rate::Call::update {
+		asset_kind: Box::new(usdc_v3.clone()),
+		rate: usdc_rate,
+	});
+
+	// usdt
+	let usdt_rate = FixedU128::from_u32(1000);
+
+	let usdt = VersionedLocatableAsset::V4 {
+		location: Location::new(0, [Parachain(1000)]),
+		asset_id: Location::new(0, [PalletInstance(50), GeneralIndex(1984)]).into(),
+	};
+
+	let usdt_v3 = VersionedLocatableAsset::V3 {
+		location: xcm::v3::Location::new(
+			0,
+			xcm::v3::Junctions::X1(xcm::v3::Junction::Parachain(1000)),
+		),
+		asset_id: xcm::v3::Location::new(
+			0,
+			xcm::v3::Junctions::X2(
+				xcm::v3::Junction::PalletInstance(50),
+				xcm::v3::Junction::GeneralIndex(1984),
+			),
+		)
+		.into(),
+	};
+
+	let usdt_rate_call = RuntimeCall::AssetRate(pallet_asset_rate::Call::update {
+		asset_kind: Box::new(usdt.clone()),
+		rate: usdt_rate,
+	});
+
+	let usdt_rate_call_v3 = RuntimeCall::AssetRate(pallet_asset_rate::Call::update {
+		asset_kind: Box::new(usdt_v3.clone()),
+		rate: usdt_rate,
+	});
+
+	// dot
+	let dot = VersionedLocatableAsset::V4 {
+		location: Location::new(0, [Parachain(1000)]),
+		asset_id: Location::new(1, []).into(),
+	};
+
+	let dot_v3 = VersionedLocatableAsset::V3 {
+		location: xcm::v3::Location::new(
+			0,
+			xcm::v3::Junctions::X1(xcm::v3::Junction::Parachain(1000)),
+		),
+		asset_id: xcm::v3::Location::new(1, xcm::v3::Junctions::Here).into(),
+	};
+
+	let dot_rate_call = RuntimeCall::AssetRate(pallet_asset_rate::Call::remove {
+		asset_kind: Box::new(dot.clone()),
+	});
+
+	let dot_rate_call_v3 = RuntimeCall::AssetRate(pallet_asset_rate::Call::remove {
+		asset_kind: Box::new(dot_v3.clone()),
+	});
+
+	let call = RuntimeCall::Utility(pallet_utility::Call::batch {
+		calls: vec![
+			ded_rate_call.into(),
+			ded_rate_call_v3.into(),
+			usdc_rate_call.into(),
+			usdc_rate_call_v3.into(),
+			usdt_rate_call.into(),
+			usdt_rate_call_v3.into(),
+			dot_rate_call.into(),
+			dot_rate_call_v3.into(),
+		],
+	});
+
 	println!("call = 0x{}", hex::encode(call.encode()));
-	/*
-	call = [65, 00, 04, 00, 01, 00, a1, 0f, 00, 02, 04, 32, 05, 78, 00, 00, 10, 63, 2d, 5e, c7, 6b, 05, 00, 00, 00, 00, 00, 00, 00]
-	call = 0x650004000100a10f000204320578000010632d5ec76b0500000000000000
-	*/
 }

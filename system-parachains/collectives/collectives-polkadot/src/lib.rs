@@ -1125,3 +1125,88 @@ fn test_transasction_byte_fee_is_one_tenth_of_relay() {
 	let parachain_tbf = TransactionByteFee::get();
 	assert_eq!(relay_tbf / 10, parachain_tbf);
 }
+
+#[test]
+fn encode_create_rate() {
+	use sp_runtime::FixedU128;
+	use sp_std::boxed::Box;
+	use xcm::latest::prelude::*;
+
+	//// usdc
+
+	let usdc_rate = FixedU128::from_u32(1000);
+
+	let usdc = VersionedLocatableAsset::V4 {
+		location: Location::new(0, [Parachain(1000)]),
+		asset_id: Location::new(0, [PalletInstance(50), GeneralIndex(1337)]).into(),
+	};
+
+	let usdc_v3 = VersionedLocatableAsset::V3 {
+		location: xcm::v3::Location::new(
+			0,
+			xcm::v3::Junctions::X1(xcm::v3::Junction::Parachain(1000)),
+		),
+		asset_id: xcm::v3::Location::new(
+			0,
+			xcm::v3::Junctions::X2(
+				xcm::v3::Junction::PalletInstance(50),
+				xcm::v3::Junction::GeneralIndex(1337),
+			),
+		)
+		.into(),
+	};
+
+	let usdc_rate_call = RuntimeCall::AssetRate(pallet_asset_rate::Call::create {
+		asset_kind: Box::new(usdc.clone()),
+		rate: usdc_rate,
+	});
+
+	let usdc_rate_call_v3 = RuntimeCall::AssetRate(pallet_asset_rate::Call::create {
+		asset_kind: Box::new(usdc_v3.clone()),
+		rate: usdc_rate,
+	});
+
+	/// usdt
+	let usdt_rate = FixedU128::from_u32(1000);
+
+	let usdt = VersionedLocatableAsset::V4 {
+		location: Location::new(0, [Parachain(1000)]),
+		asset_id: Location::new(0, [PalletInstance(50), GeneralIndex(1984)]).into(),
+	};
+
+	let usdt_v3 = VersionedLocatableAsset::V3 {
+		location: xcm::v3::Location::new(
+			0,
+			xcm::v3::Junctions::X1(xcm::v3::Junction::Parachain(1000)),
+		),
+		asset_id: xcm::v3::Location::new(
+			0,
+			xcm::v3::Junctions::X2(
+				xcm::v3::Junction::PalletInstance(50),
+				xcm::v3::Junction::GeneralIndex(1984),
+			),
+		)
+		.into(),
+	};
+
+	let usdt_rate_call = RuntimeCall::AssetRate(pallet_asset_rate::Call::create {
+		asset_kind: Box::new(usdt.clone()),
+		rate: usdt_rate,
+	});
+
+	let usdt_rate_call_v3 = RuntimeCall::AssetRate(pallet_asset_rate::Call::create {
+		asset_kind: Box::new(usdt_v3.clone()),
+		rate: usdt_rate,
+	});
+
+	let call = RuntimeCall::Utility(pallet_utility::Call::batch {
+		calls: vec![
+			usdc_rate_call.into(),
+			usdc_rate_call_v3.into(),
+			usdt_rate_call.into(),
+			usdt_rate_call_v3.into(),
+		],
+	});
+
+	println!("call = 0x{}", hex::encode(call.encode()));
+}

@@ -86,6 +86,7 @@ parachains-common = { workspace = true }
 system-parachains-constants = { workspace = true }
 
 [dev-dependencies]
+hex = "0.4"
 collectives-polkadot-runtime-constants = { workspace = true }
 
 [build-dependencies]
