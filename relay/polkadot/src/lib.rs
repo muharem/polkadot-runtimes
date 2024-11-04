@@ -3418,3 +3418,164 @@ mod remote_tests {
 		});
 	}
 }
+
+
+#[cfg(all(test, feature = "try-runtime"))]
+mod crowdloan_tests {
+	use super::*;
+	use csv::Writer;
+	use polkadot_runtime_common::crowdloan;
+	use remote_externalities::{Builder, Mode, OfflineConfig, SnapshotConfig};
+	use std::fs::File;
+
+	#[tokio::test]
+	async fn report_contributors() {
+		let mut ext = Builder::<Block>::default()
+			.mode(Mode::Offline(OfflineConfig {
+				state_snapshot: SnapshotConfig::new("../../._var/polkadot.snap"),
+			}))
+			.build()
+			.await
+			.unwrap();
+
+		ext.execute_with(|| {
+			let current_lease_period = 18;
+			let current_block_number = 23262687; // Nov 4 2024
+
+			let mut latest_ends_in_month = 0;
+
+			let csv_file = File::create("._output.csv").unwrap();
+			let mut wtr = Writer::from_writer(csv_file);
+
+			wtr.write_record(&[
+				"fund_id",
+				"para_id",
+				"funds_raised",
+				"fund_end",
+				"first_period",
+				"last_period",
+				"month_left",
+				"fund_account",
+				"fund_account_free_balance",
+				"actual_lease_deposit",
+				"contributor",
+				"contributor_deposit",
+			]).unwrap();
+
+			for (para_id, fund) in crowdloan::Funds::<Runtime>::iter() {
+				if current_lease_period >= fund.last_period ||
+					(fund.raised == 0 && fund.end < current_block_number)
+				{
+					// finished or finising soon (in ~ 44 days) crowdloans;
+					continue;
+				}
+
+				let full_lease_period_left = fund.last_period - current_lease_period;
+				// leases left * period + half of the current lease
+				let blocks_left =
+					LeasePeriod::get() * full_lease_period_left + (LeasePeriod::get() / 2);
+				let month_left = (blocks_left / DAYS) / 30;
+				latest_ends_in_month = latest_ends_in_month.max(month_left);
+
+
+				let fund_account = crowdloan::Pallet::<Runtime>::fund_account_id(fund.fund_index);
+				let fund_balance = Balances::free_balance(&fund_account);
+
+				let leases = slots::Leases::<Runtime>::get(para_id);
+				let lease_deposit = if leases.len() > 0 {
+					let (_, lease_deposit) =
+						leases.first().unwrap().clone().unwrap_or((fund_account.clone(), 0));
+
+					assert_eq!(leases.len(), (full_lease_period_left + 1) as usize);
+					assert!(leases
+						.iter()
+						.all(|item| item.as_ref() == Some(&(fund_account.clone(), lease_deposit))));
+
+					lease_deposit
+				} else {
+					0
+				};
+				
+				let mut contributors_count = 0;
+				let mut small_contributors_count = 0;
+				let mut small_contributors_sum = 0;
+				let mut med_contributors_count = 0;
+				let mut med_contributors_sum = 0;
+				let mut upmed_contributors_count = 0;
+				let mut upmed_contributors_sum = 0;
+				let mut min_contribution = Balance::MAX;
+
+				for (account, (balance, _)) in
+					crowdloan::Pallet::<Runtime>::contribution_iterator(fund.fund_index)
+				{
+					contributors_count = contributors_count + 1;
+					min_contribution = min_contribution.min(balance);
+					if balance < 10 * UNITS {
+						small_contributors_count = small_contributors_count + 1;
+						small_contributors_sum = small_contributors_sum + balance;
+					}
+					if balance >= 10 * UNITS && balance <= 20 * UNITS {
+						med_contributors_count = med_contributors_count + 1;
+						med_contributors_sum = med_contributors_sum + balance;
+					}
+					if balance > 20 * UNITS && balance <= 50 * UNITS {
+						upmed_contributors_count = upmed_contributors_count + 1;
+						upmed_contributors_sum = upmed_contributors_sum + balance;
+					}
+
+					wtr.write_record(&[
+						&fund.fund_index.to_string(),
+						&para_id.to_string(),
+						&fund.raised.to_string(),
+						&fund.end.to_string(),
+						&fund.first_period.to_string(),
+						&fund.last_period.to_string(),
+						&month_left.to_string(),
+						&fund_account.clone().to_string(),
+						&fund_balance.to_string(),
+						&lease_deposit.to_string(),
+						&account.clone().to_string(),
+						&balance.to_string(),
+					]).unwrap();
+				}
+
+				println!(
+					"index: {:?} \n\
+					para_id: {:?} \n\
+					funds raised: {:?} DOT \n\
+					lease interval: {:?} - {:?} \n\
+					month left: {:?} \n\
+					contributions: {:?}\n\
+					small contributions: {:?}\n\
+					small contributions sum: {:?} DOT \n\
+					med contributions: {:?}\n\
+					med contributions sum: {:?} DOT \n\
+					upmed contributions: {:?}\n\
+					upmed contributions sum: {:?} DOT \n\
+					min contribution: {:?} \n\
+					lease deposit: {:?} DOT \n\
+					fund account balance: {:?} DOT \n",
+					fund.fund_index,
+					para_id,
+					fund.raised / UNITS,
+					fund.first_period,
+					fund.last_period,
+					month_left,
+					contributors_count,
+					small_contributors_count,
+					small_contributors_sum / UNITS,
+					med_contributors_count,
+					med_contributors_sum / UNITS,
+					upmed_contributors_count,
+					upmed_contributors_sum / UNITS,
+					min_contribution / UNITS,
+					lease_deposit / UNITS,
+					fund_balance / UNITS,
+				);
+			}
+
+			wtr.flush().unwrap();
+			println!("latest ends (# months): {:?}", latest_ends_in_month);
+		});
+	}
+}

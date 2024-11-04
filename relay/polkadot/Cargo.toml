@@ -114,6 +114,7 @@ separator = { workspace = true }
 remote-externalities = { workspace = true }
 tokio = { features = ["macros"], workspace = true }
 sp-tracing = { workspace = true }
+csv = { version = "*" }
 
 [build-dependencies]
 substrate-wasm-builder = { workspace = true, optional = true }
